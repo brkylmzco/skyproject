@@ -1,0 +1,3 @@
+class FileNotFoundErrorException(FileOperationException): pass
+class PermissionDeniedException(FileOperationException): pass
+class IsADirectoryException(FileOperationException): pass

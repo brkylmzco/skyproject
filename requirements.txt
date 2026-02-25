@@ -1,0 +1,16 @@
+requests
+networkx
+tenacity
+pandas
+scikit-learn
+matplotlib
+pytest
+openai
+anthropic
+pydantic
+python-dotenv
+rich
+aiofiles
+orjson
+chromadb
+numpy

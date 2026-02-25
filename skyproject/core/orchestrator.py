@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import signal
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, Callable, Coroutine, Optional
 
 from rich.console import Console
-from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from skyproject.core.code_index import CodeIndex
 from skyproject.core.communication import MessageBus
@@ -22,6 +21,9 @@ from skyproject.shared.models import SystemState
 from skyproject.core.self_improvement import SelfImprovementFeedbackLoop
 
 console = Console()
+logger = logging.getLogger(__name__)
+
+CycleHook = Callable[[int, dict], Coroutine[Any, Any, None]]
 
 
 class Orchestrator:
@@ -36,7 +38,28 @@ class Orchestrator:
         self.self_improvement = SelfImprovementFeedbackLoop(self.task_store, self.bus)
         self.state = SystemState()
         self._running = False
+        self._paused = False
         self._start_time = 0.0
+        self._cycle_hooks: list[CycleHook] = []
+        self.telegram_bot: Optional[Any] = None
+
+    def add_cycle_hook(self, hook: CycleHook) -> None:
+        self._cycle_hooks.append(hook)
+
+    def pause(self) -> None:
+        self._paused = True
+        logger.info("Orchestrator paused")
+
+    def resume(self) -> None:
+        self._paused = False
+        logger.info("Orchestrator resumed")
+
+    async def _fire_cycle_hooks(self, cycle_num: int, result: dict) -> None:
+        for hook in self._cycle_hooks:
+            try:
+                await hook(cycle_num, result)
+            except Exception as e:
+                logger.error("Cycle hook error: %s", e)
 
     async def run(self) -> None:
         """Main run loop."""
@@ -49,16 +72,29 @@ class Orchestrator:
 
         self._print_banner()
 
+        if self.telegram_bot:
+            await self.telegram_bot.start()
+
         console.print("[dim]Ensuring codebase is indexed...[/dim]")
         self.code_index.ensure_indexed()
         console.print(f"[green]Index ready: {self.code_index.store.count} chunks[/green]\n")
 
         while self._running:
+            if self._paused:
+                await asyncio.sleep(2)
+                continue
+
             try:
-                await self._run_cycle()
+                result = await self._run_cycle()
                 self.state.cycle_count += 1
                 self.state.last_cycle_at = datetime.now()
                 self.state.uptime_seconds = time.time() - self._start_time
+
+                await self._fire_cycle_hooks(self.state.cycle_count, result)
+
+                if self.telegram_bot and self.telegram_bot.enabled:
+                    if self.state.cycle_count % self.telegram_bot.report_every == 0:
+                        await self.telegram_bot.send_cycle_report(self.state.cycle_count)
 
                 if self.state.cycle_count % 5 == 0:
                     await self._print_status()
@@ -79,6 +115,8 @@ class Orchestrator:
                 console.print(f"[bold red]Cycle error: {e}[/bold red]")
                 await asyncio.sleep(5)
 
+        if self.telegram_bot:
+            await self.telegram_bot.stop()
         console.print("\n[bold]SkyProject shutting down gracefully.[/bold]")
 
     async def run_single_cycle(self) -> dict[str, Any]:

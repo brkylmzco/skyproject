@@ -13,22 +13,19 @@ class PromptGenerator:
         self.max_feedbacks = max_feedbacks
 
     def generate_prompt(
-        self, context: Dict[str, Any], user_input: str, feedback: Optional[List[str]] = None, interactions: Optional[List[str]] = None
+        self, context: Dict[str, Any], user_input: str, feedback: Optional[str] = None
     ) -> str:
         """
         Generate a context-aware prompt for LLMs, dynamically adjusting based on previous interactions and feedback.
 
         :param context: A dictionary containing context information.
         :param user_input: The input provided by the user.
-        :param feedback: Optional list of feedback from previous interactions to adjust the prompt.
-        :param interactions: Optional list of previous interactions to enhance contextual understanding.
+        :param feedback: Optional feedback from the last interaction.
         :return: A crafted prompt string.
         """
-        # Incorporate provided feedback and interactions
-        self.incorporate_feedback(feedback or [])
-        if interactions:
-            for interaction in interactions:
-                self.incorporate_interaction(interaction)
+        # Incorporate provided feedback
+        if feedback:
+            self.incorporate_feedback(feedback)
 
         additional_context = self._extract_additional_context(context)
         interaction_history = self._format_previous_interactions()
@@ -53,7 +50,7 @@ class PromptGenerator:
         :return: A formatted string of additional context.
         """
         parts = []
-        for key, value in context.items():
+        for key, value in sorted(context.items()):  # Sort for consistent order
             parts.append(f"{key.capitalize()}: {value}")
         return "\n".join(parts)
 
@@ -113,14 +110,13 @@ class PromptGenerator:
         self.previous_interactions.clear()
         self.feedback_list.clear()
 
-    def incorporate_feedback(self, feedback: List[str]) -> None:
+    def incorporate_feedback(self, feedback: str) -> None:
         """
-        Incorporate a list of feedback into the prompt generator, ensuring it is contextually aware.
+        Incorporate feedback into the prompt generator, ensuring it is contextually aware.
 
-        :param feedback: List of feedback strings to incorporate.
+        :param feedback: Feedback string to incorporate.
         """
-        for fb in feedback:
-            self._update_feedback_list(fb)
+        self._update_feedback_list(feedback)
 
     def incorporate_interaction(self, interaction: str) -> None:
         """

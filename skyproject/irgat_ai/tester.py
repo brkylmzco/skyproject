@@ -1,41 +1,54 @@
+"""Code validation and testing for IrgatAI."""
+from __future__ import annotations
+
 import ast
-import traceback
-import logging
 import asyncio
-from skyproject.irgat_ai.exceptions import SyntaxErrorException, ImportErrorException, FileOperationException
+import logging
+import traceback
+
+from skyproject.shared.models import CodeChange
 
 logger = logging.getLogger(__name__)
 
-class Tester:
-    async def validate_changes(self, changes: list[CodeChange]) -> bool:
-        async def check_syntax_and_imports(source_code: str) -> bool:
-            try:
-                ast.parse(source_code)
-                return True
-            except SyntaxError as e:
-                raise SyntaxErrorException(f'Syntax error at line {e.lineno} offset {e.offset}') from e
-            except ImportError as e:
-                raise ImportErrorException(f'Import error: {str(e)}') from e
-            except Exception as e:
-                logger.error('Unexpected error during syntax and import check: %s', e, exc_info=True)
-                raise FileOperationException('Unexpected error during syntax and import check')
 
-        tasks = [check_syntax_and_imports(change.new_content) for change in changes]
+class Tester:
+    """Validates code changes before they are applied."""
+
+    async def validate_changes(self, changes: list[CodeChange]) -> bool:
+        """Validate all code changes via syntax checking."""
+        if not changes:
+            return False
+
+        tasks = [self._check_syntax(change) for change in changes]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        all_valid = True
         for change, result in zip(changes, results):
             if isinstance(result, Exception):
-                self._log_error(result, {'source_code': change.new_content})
+                logger.error(
+                    "Validation failed for %s: %s",
+                    change.file_path, result,
+                )
+                all_valid = False
+            elif not result:
+                all_valid = False
 
-        return all(isinstance(result, bool) and result for result in results)
+        return all_valid
 
-    def _log_error(self, e: Exception, context: dict) -> None:
-        error_info = {
-            'error_type': type(e).__name__,
-            'filename': getattr(e, 'filename', ''),
-            'lineno': getattr(e, 'lineno', ''),
-            'message': str(e),
-            'context': context
-        }
-        logger.error('Error occurred', extra=error_info)
-        logger.debug(traceback.format_exc())
+    async def _check_syntax(self, change: CodeChange) -> bool:
+        """Check if the code has valid Python syntax."""
+        if not change.file_path.endswith(".py"):
+            return True
+
+        try:
+            ast.parse(change.new_content)
+            return True
+        except SyntaxError as e:
+            logger.warning(
+                "Syntax error in %s at line %s: %s",
+                change.file_path, e.lineno, e.msg,
+            )
+            return False
+        except Exception as e:
+            logger.error("Unexpected validation error: %s", e, exc_info=True)
+            return False

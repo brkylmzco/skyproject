@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Task Detail — SkyProject{% endblock %}
+{% block header %}Task Detail{% endblock %}
+
+{% block content %}
+<a href="/tasks" class="text-sm text-cyan-400 hover:underline mb-4 inline-block">&larr; Back to tasks</a>
+
+{% if error %}
+<div class="text-center py-16 text-gray-600">
+    <p class="text-lg">{{ error }}</p>
+</div>
+{% elif task %}
+<div class="stat-card mb-6">
+    <div class="flex items-start justify-between mb-4">
+        <div>
+            <h3 class="text-lg font-semibold text-white">{{ task.title }}</h3>
+            <p class="text-xs text-gray-500 font-mono mt-1">ID: {{ task.id }}</p>
+        </div>
+        <span class="badge badge-{{ task.status.value }}">{{ task.status.value }}</span>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 text-sm">
+        <div>
+            <p class="text-gray-500 text-xs">Type</p>
+            <p>{{ task.task_type.value }}</p>
+        </div>
+        <div>
+            <p class="text-gray-500 text-xs">Priority</p>
+            <p>{{ task.priority.value }}</p>
+        </div>
+        <div>
+            <p class="text-gray-500 text-xs">Module</p>
+            <p>{{ task.target_module or 'N/A' }}</p>
+        </div>
+        <div>
+            <p class="text-gray-500 text-xs">Assigned To</p>
+            <p>{{ task.assigned_to }}</p>
+        </div>
+    </div>
+
+    <div class="mb-6">
+        <p class="text-gray-500 text-xs mb-1">Description</p>
+        <p class="text-sm text-gray-300 whitespace-pre-wrap">{{ task.description }}</p>
+    </div>
+
+    {% if task.review_notes %}
+    <div class="mb-6">
+        <p class="text-gray-500 text-xs mb-1">Review Notes</p>
+        <p class="text-sm text-gray-300 whitespace-pre-wrap">{{ task.review_notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-3 gap-4 text-xs text-gray-500 border-t border-gray-800 pt-4">
+        <div>
+            <p>Created</p>
+            <p class="text-gray-300">{{ task.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+        </div>
+        <div>
+            <p>Started</p>
+            <p class="text-gray-300">{{ task.started_at.strftime('%Y-%m-%d %H:%M:%S') if task.started_at else 'N/A' }}</p>
+        </div>
+        <div>
+            <p>Completed</p>
+            <p class="text-gray-300">{{ task.completed_at.strftime('%Y-%m-%d %H:%M:%S') if task.completed_at else 'N/A' }}</p>
+        </div>
+    </div>
+</div>
+
+{% if task.code_changes %}
+<div class="stat-card">
+    <h3 class="text-sm font-semibold text-gray-400 mb-4">Code Changes ({{ task.code_changes|length }})</h3>
+    {% for change in task.code_changes %}
+    <div class="mb-4 p-3 bg-gray-950 rounded border border-gray-800">
+        <div class="flex justify-between items-center mb-2">
+            <span class="font-mono text-xs text-cyan-400">{{ change.file_path }}</span>
+            <span class="text-xs text-gray-500">{{ change.change_type }}</span>
+        </div>
+        <pre class="text-xs text-gray-400 overflow-x-auto max-h-40 overflow-y-auto">{{ change.new_content[:2000] }}</pre>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

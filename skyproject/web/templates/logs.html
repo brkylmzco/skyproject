@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Logs — SkyProject{% endblock %}
+{% block header %}Logs{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+    <p class="text-sm text-gray-500">Showing last 500 lines. New entries stream in real-time.</p>
+    <button onclick="document.getElementById('log-container').innerHTML=''" class="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 px-3 py-1 rounded">Clear</button>
+</div>
+<div id="log-container" class="stat-card h-[calc(100vh-220px)] overflow-y-auto font-mono text-xs space-y-0">
+    {% for line in log_lines %}
+    <div class="log-line {% if 'ERROR' in line %}ERROR{% elif 'WARNING' in line %}WARNING{% elif 'INFO' in line %}INFO{% else %}DEBUG{% endif %}">{{ line }}</div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('log-container');
+    container.scrollTop = container.scrollHeight;
+});
+</script>
+{% endblock %}

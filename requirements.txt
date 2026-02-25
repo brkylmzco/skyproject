@@ -14,3 +14,9 @@ aiofiles
 orjson
 chromadb
 numpy
+fastapi
+uvicorn
+jinja2
+python-multipart
+itsdangerous
+httpx

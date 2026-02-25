@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyProject — Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="h-full bg-gray-950 flex items-center justify-center">
+    <div class="w-full max-w-sm">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-2xl">
+            <h1 class="text-2xl font-bold text-cyan-400 text-center mb-6">SkyProject</h1>
+            {% if error %}
+            <div class="mb-4 p-3 rounded bg-red-900/50 border border-red-700 text-red-300 text-sm">{{ error }}</div>
+            {% endif %}
+            {% if must_change %}
+            <p class="mb-4 text-sm text-amber-400">You must change the default password before continuing.</p>
+            <form method="post" action="/login" class="space-y-4">
+                <input type="hidden" name="action" value="change_password">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">New Password</label>
+                    <input type="password" name="new_password" required minlength="6"
+                           class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Confirm Password</label>
+                    <input type="password" name="confirm_password" required minlength="6"
+                           class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 rounded transition">
+                    Change Password
+                </button>
+            </form>
+            {% else %}
+            <form method="post" action="/login" class="space-y-4">
+                <input type="hidden" name="action" value="login">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Username</label>
+                    <input type="text" name="username" required
+                           class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Password</label>
+                    <input type="password" name="password" required
+                           class="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-2 rounded transition">
+                    Login
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

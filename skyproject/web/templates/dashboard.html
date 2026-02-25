@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — SkyProject{% endblock %}
+{% block header %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="stat-card">
+        <p class="text-xs text-gray-500 uppercase tracking-wider">Cycles</p>
+        <p class="text-3xl font-bold text-cyan-400 mt-1">{{ state.cycle_count }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="text-xs text-gray-500 uppercase tracking-wider">Uptime</p>
+        <p class="text-3xl font-bold text-white mt-1">{{ state.uptime }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="text-xs text-gray-500 uppercase tracking-wider">Tasks Completed</p>
+        <p class="text-3xl font-bold text-green-400 mt-1">{{ state.tasks_completed }}</p>
+    </div>
+    <div class="stat-card">
+        <p class="text-xs text-gray-500 uppercase tracking-wider">Improvements</p>
+        <p class="text-3xl font-bold text-amber-400 mt-1">{{ state.improvements }}</p>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="stat-card">
+        <h3 class="text-sm font-semibold text-gray-400 mb-4">Task Status Distribution</h3>
+        <div class="h-64">
+            <canvas id="taskChart"></canvas>
+        </div>
+    </div>
+    <div class="stat-card">
+        <h3 class="text-sm font-semibold text-gray-400 mb-4">System Info</h3>
+        <table class="w-full text-sm">
+            <tr class="border-b border-gray-800">
+                <td class="py-2 text-gray-500">Last Cycle</td>
+                <td class="py-2 text-right">{{ state.last_cycle }}</td>
+            </tr>
+            <tr class="border-b border-gray-800">
+                <td class="py-2 text-gray-500">Cycle Count</td>
+                <td class="py-2 text-right">{{ state.cycle_count }}</td>
+            </tr>
+            <tr class="border-b border-gray-800">
+                <td class="py-2 text-gray-500">Total Improvements</td>
+                <td class="py-2 text-right">{{ state.improvements }}</td>
+            </tr>
+            <tr>
+                <td class="py-2 text-gray-500">Tasks Completed</td>
+                <td class="py-2 text-right">{{ state.tasks_completed }}</td>
+            </tr>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const raw = {{ task_counts|safe }};
+        initTaskChart(raw);
+    });
+</script>
+{% endblock %}

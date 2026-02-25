@@ -35,6 +35,15 @@ class Config:
     VECTOR_CONTEXT_MAX_TOKENS: int = int(os.getenv("SKY_VECTOR_CONTEXT_TOKENS", "3000"))
     TARGET_PROJECT_DIR: str = os.getenv("SKY_TARGET_PROJECT", "")
 
+    # Web UI settings
+    WEB_PORT: int = int(os.getenv("SKY_WEB_PORT", "8080"))
+    WEB_ENABLED: bool = os.getenv("SKY_WEB_ENABLED", "false").lower() == "true"
+
+    # Telegram settings
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_CHAT_ID: str = os.getenv("TELEGRAM_CHAT_ID", "")
+    TELEGRAM_REPORT_EVERY: int = int(os.getenv("SKY_TELEGRAM_REPORT_EVERY", "10"))
+
     PM_SYSTEM_PROMPT: str = """You are PM AI, the Project Manager of SkyProject.
 Your role is to:
 1. Analyze the current codebase of PM AI and IrgatAI

@@ -6,15 +6,12 @@ from pathlib import Path
 from typing import Optional
 
 import aiofiles
-from aiofiles.os import wrap
 
 from skyproject.core.config import TASKS_DIR, Config
 from skyproject.shared.models import Task, TaskStatus
 
 
 logger = logging.getLogger(__name__)
-
-async_open = wrap(aiofiles.open)
 
 
 class TaskStore:
@@ -73,7 +70,7 @@ class TaskStore:
         retries = Config.MAX_RETRIES
         while retries > 0:
             try:
-                async with async_open(path, "w") as f:
+                async with aiofiles.open(path, "w") as f:
                     await f.write(data)
                 return
             except OSError as e:
@@ -86,7 +83,7 @@ class TaskStore:
         retries = Config.MAX_RETRIES
         while retries > 0:
             try:
-                async with async_open(path, "r") as f:
+                async with aiofiles.open(path, "r") as f:
                     data = json.loads(await f.read())
                 return Task(**data)
             except (OSError, json.JSONDecodeError) as e:

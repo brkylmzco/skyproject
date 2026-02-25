@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Tasks — SkyProject{% endblock %}
+{% block header %}Tasks{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-2 mb-6">
+    <span class="text-sm text-gray-500">Filter:</span>
+    <a href="/tasks" class="text-xs px-3 py-1 rounded-full {% if not status_filter %}bg-cyan-900 text-cyan-300{% else %}bg-gray-800 text-gray-400 hover:text-gray-200{% endif %}">All</a>
+    {% for s in ['pending', 'in_progress', 'in_review', 'completed', 'failed'] %}
+    <a href="/tasks?status={{ s }}" class="text-xs px-3 py-1 rounded-full {% if status_filter == s %}bg-cyan-900 text-cyan-300{% else %}bg-gray-800 text-gray-400 hover:text-gray-200{% endif %}">{{ s }}</a>
+    {% endfor %}
+</div>
+
+{% if tasks %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="text-left text-gray-500 border-b border-gray-800">
+                <th class="py-3 pr-4">ID</th>
+                <th class="py-3 pr-4">Title</th>
+                <th class="py-3 pr-4">Type</th>
+                <th class="py-3 pr-4">Priority</th>
+                <th class="py-3 pr-4">Status</th>
+                <th class="py-3">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+            <tr class="border-b border-gray-800/50 hover:bg-gray-900/50">
+                <td class="py-3 pr-4">
+                    <a href="/tasks/{{ task.id }}" class="text-cyan-400 hover:underline font-mono text-xs">{{ task.id }}</a>
+                </td>
+                <td class="py-3 pr-4">{{ task.title[:60] }}</td>
+                <td class="py-3 pr-4 text-gray-400">{{ task.task_type.value }}</td>
+                <td class="py-3 pr-4">
+                    <span class="badge badge-{{ task.priority.value }}">{{ task.priority.value }}</span>
+                </td>
+                <td class="py-3 pr-4">
+                    <span class="badge badge-{{ task.status.value }}">{{ task.status.value }}</span>
+                </td>
+                <td class="py-3 text-gray-500 text-xs">{{ task.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-16 text-gray-600">
+    <p class="text-lg">No tasks found.</p>
+    <p class="text-sm mt-1">Tasks will appear once the orchestrator starts running.</p>
+</div>
+{% endif %}
+{% endblock %}

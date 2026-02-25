@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import orjson as json
+import json
 import logging
 from collections import defaultdict, deque
 from datetime import datetime
@@ -52,11 +52,24 @@ class MessageBus:
         self._log_file = LOGS_DIR / "messages.jsonl"
         self._acknowledgments: dict[str, asyncio.Event] = {}
         self._adjustment_task: Optional[asyncio.Task] = None
-        self._start_adjustment_task()
-        asyncio.create_task(self.monitor_message_flow())
+        self._monitor_task: Optional[asyncio.Task] = None
+        self._background_started = False
+
+    def _ensure_background_tasks(self) -> None:
+        """Start background tasks lazily when an event loop is available."""
+        if self._background_started:
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        self._background_started = True
+        self._adjustment_task = loop.create_task(self.adjust_queue_sizes())
+        self._monitor_task = loop.create_task(self.monitor_message_flow())
 
     async def send(self, message: Message) -> None:
         """Send a message to the target's queue."""
+        self._ensure_background_tasks()
         self._history.append(message)
         await self._log_message(message)
 
@@ -134,7 +147,7 @@ class MessageBus:
     async def _log_message(self, message: Message) -> None:
         try:
             async with aiofiles.open(self._log_file, "a") as f:
-                await f.write(json.dumps(message.model_dump_dict()) + "\n")
+                await f.write(json.dumps(message.model_dump(mode="python"), default=str) + "\n")
         except (OSError, json.JSONDecodeError) as e:
             logger.error("Failed to log message %s: %s", message.id, e)
 
@@ -151,9 +164,8 @@ class MessageBus:
                     logger.warning("Potential bottleneck detected for %s: %d messages in queue.", receiver, queue.qsize())
 
     def _start_adjustment_task(self) -> None:
-        """Start the task that adjusts queue sizes."""
-        if self._adjustment_task is None:
-            self._adjustment_task = asyncio.create_task(self.adjust_queue_sizes())
+        """Start the task that adjusts queue sizes (called lazily)."""
+        pass
 
     async def adjust_queue_sizes(self) -> None:
         """Adjust queue sizes based on dynamic conditions."""

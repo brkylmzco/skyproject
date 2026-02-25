@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}API Keys — SkyProject{% endblock %}
+{% block header %}API Keys{% endblock %}
+
+{% block content %}
+<form method="post" action="/settings/keys" class="max-w-2xl">
+    <div class="stat-card space-y-5">
+        {% for key in keys %}
+        <div>
+            <label class="block text-sm text-gray-400 mb-1">{{ key.label }}</label>
+            <div class="flex items-center gap-3">
+                <input type="password" name="{{ key.key }}"
+                       placeholder="{% if key.has_value %}{{ key.masked }}{% else %}Not set{% endif %}"
+                       class="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500 text-sm font-mono"
+                       autocomplete="off">
+                {% if key.has_value %}
+                <span class="text-xs text-green-500 whitespace-nowrap">Set</span>
+                {% else %}
+                <span class="text-xs text-gray-600 whitespace-nowrap">Not set</span>
+                {% endif %}
+            </div>
+            <p class="text-xs text-gray-600 mt-1">Leave empty to keep current value. Enter a new value to update.</p>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="mt-4">
+        <button type="submit" class="bg-cyan-600 hover:bg-cyan-500 text-white font-semibold px-6 py-2 rounded transition text-sm">
+            Save API Keys
+        </button>
+    </div>
+</form>
+{% endblock %}

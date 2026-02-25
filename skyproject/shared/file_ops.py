@@ -36,7 +36,8 @@ async def write_file(path: str, content: str) -> bool:
         backup_path = full_path.with_suffix(full_path.suffix + ".bak")
         shutil.copy2(full_path, backup_path)
 
-    success = await _retry_operation(_write_file, full_path, content)
+    result = await _retry_operation(_write_file, full_path, content)
+    success = result is not None
 
     if success and backup_path and backup_path.exists():
         backup_path.unlink()
@@ -102,21 +103,22 @@ async def save_snapshot(module_path: str, label: str) -> str:
 
     return str(snapshot_dir)
 
-async def _retry_operation(func, *args, retries: int = 3, delay: float = 1.0, **kwargs) -> Optional[bool]:
-    """Retry a file operation with exponential backoff."""
+async def _retry_operation(func, *args, retries: int = 3, delay: float = 1.0, **kwargs):
+    """Retry a file operation with exponential backoff. Returns the function's actual result."""
     attempt = 0
+    last_error = None
     while attempt < retries:
         try:
-            await func(*args, **kwargs)
-            return True
-        except (OSError, aiofiles.threadpool.errors.ThreadPoolOSError) as e:
+            return await func(*args, **kwargs)
+        except OSError as e:
+            last_error = e
             attempt += 1
             log_warning(f"Attempt {attempt}/{retries} failed due to: {str(e)}")
             if attempt < retries:
                 await asyncio.sleep(delay * (2 ** (attempt - 1)))
             else:
                 log_error(ErrorCode.REQUEST_EXCEPTION, f"Max retries reached for operation: {str(e)}")
-                return False
+                return None
 
 
 def _resolve_path(path: str) -> Path:

@@ -18,33 +18,100 @@ Both agents continuously improve their own source code, creating an ever-acceler
 - **~80-90% cost reduction** — only relevant code chunks are sent to the LLM, not entire files
 - **Self-evolving** — both AI agents analyze and upgrade their own code every N cycles
 - **Safety first** — snapshots before every modification, review gates, syntax validation, retry limits
-- **Multi-provider** — supports OpenAI and Anthropic
+- **Multi-provider** — supports OpenAI and Anthropic (Claude)
 - **Language agnostic detection** — auto-detects Python, JavaScript, TypeScript, Go, Rust, Java projects
 
 ## Architecture
 
-```
-┌──────────────────────────────────────────────────────┐
-│                    Orchestrator                       │
-│           (continuous evolution loop)                 │
-├────────────────────┬─────────────────────────────────┤
-│                    │                                  │
-│   ┌──────────┐     │     ┌──────────────┐            │
-│   │  PM AI   │◄────┼────►│   IrgatAI    │            │
-│   │          │     │     │              │            │
-│   │ Planner  │   Message │ Coder        │            │
-│   │ Reviewer │    Bus    │ Executor     │            │
-│   │ Priority │     │     │ Tester       │            │
-│   │ Improve  │     │     │ Improve      │            │
-│   └──────────┘     │     └──────────────┘            │
-│                    │                                  │
-├────────────────────┴─────────────────────────────────┤
-│                   Shared Layer                        │
-│  Models · LLM Client · File Ops · Vector Store       │
-├──────────────────────────────────────────────────────┤
-│                  Code Index                           │
-│  ChromaDB · AST Chunker · Semantic Search             │
-└──────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph CLI [CLI Layer]
+        RunPy["run.py"]
+        CliPy["cli.py"]
+    end
+
+    subgraph Core [Core - Orchestration]
+        Orchestrator["Orchestrator\n(main loop)"]
+        MessageBus["MessageBus\n(async queue)"]
+        TaskStore["TaskStore\n(JSON persistence)"]
+        Bootstrap["Bootstrap\n(auto-setup)"]
+        CodeIndex["CodeIndex\n(vector search)"]
+        SelfImprovement["SelfImprovementFeedbackLoop"]
+    end
+
+    subgraph PMAI [PM AI - Project Manager]
+        PMAgent["PMAIAgent"]
+        Planner["Planner"]
+        Reviewer["Reviewer"]
+        PMSelfImprove["PMSelfImprover"]
+    end
+
+    subgraph IrgatAI [IrgatAI - Implementation Engine]
+        IrgatAgent["IrgatAIAgent"]
+        Coder["Coder"]
+        Executor["Executor"]
+        Tester["Tester"]
+        IrgatSelfImprove["IrgatSelfImprover"]
+    end
+
+    subgraph Shared [Shared Infrastructure]
+        LLMClient["LLMClient\n(OpenAI / Anthropic)"]
+        VectorStore["CodeVectorStore\n(ChromaDB)"]
+        CodeChunker["CodeChunker\n(AST parser)"]
+        FileOps["FileOps\n(async r/w)"]
+        Models["Pydantic Models"]
+    end
+
+    subgraph Data [Persistent Storage]
+        Tasks["tasks/*.json"]
+        Logs["logs/"]
+        Snapshots["improvements/"]
+        VectorDB["vector_db/\n(ChromaDB)"]
+    end
+
+    CliPy --> Orchestrator
+    RunPy --> Orchestrator
+    CliPy --> Bootstrap
+
+    Orchestrator --> PMAgent
+    Orchestrator --> IrgatAgent
+    Orchestrator --> CodeIndex
+    Orchestrator --> SelfImprovement
+
+    PMAgent -->|"task_assign"| MessageBus
+    IrgatAgent -->|"review_request"| MessageBus
+    MessageBus -->|"deliver"| PMAgent
+    MessageBus -->|"deliver"| IrgatAgent
+
+    PMAgent --> Planner
+    PMAgent --> Reviewer
+    PMAgent --> PMSelfImprove
+    PMAgent --> TaskStore
+
+    IrgatAgent --> Executor
+    Executor --> Coder
+    Executor --> Tester
+    IrgatAgent --> IrgatSelfImprove
+
+    PMSelfImprove --> CodeIndex
+    IrgatSelfImprove --> CodeIndex
+    Coder --> CodeIndex
+    PMAgent --> CodeIndex
+
+    CodeIndex --> VectorStore
+    CodeIndex --> CodeChunker
+    VectorStore --> VectorDB
+
+    PMAgent --> LLMClient
+    Coder --> LLMClient
+    PMSelfImprove --> LLMClient
+    IrgatSelfImprove --> LLMClient
+
+    TaskStore --> Tasks
+    MessageBus --> Logs
+    PMSelfImprove --> Snapshots
+    IrgatSelfImprove --> Snapshots
+    FileOps --> Snapshots
 ```
 
 ## Quick Start
@@ -61,7 +128,7 @@ pip install -e .
 
 # Configure
 cp .env.example .env
-# Edit .env — set your OPENAI_API_KEY
+# Edit .env — set your API key
 
 # Initialize & index
 skyproject init
@@ -77,7 +144,7 @@ git clone https://github.com/brkylmzco/skyproject.git
 cd skyproject
 
 cp .env.example .env
-# Edit .env — set your OPENAI_API_KEY
+# Edit .env — set your API key
 
 docker compose up
 ```
@@ -135,82 +202,167 @@ Environment variables (`.env`):
 ## Project Structure
 
 ```
-skyproject/
-├── run.py                              # Legacy entry point
-├── pyproject.toml                      # Package configuration
-├── requirements.txt                    # Dependencies
-├── Dockerfile                          # Container support
-├── docker-compose.yml
-├── Makefile                            # Dev shortcuts
-├── .env.example                        # Configuration template
+SkyProject/
+├── run.py                    # Legacy entry point
+├── pyproject.toml            # pip installable package
+├── requirements.txt          # Dependencies
+├── Dockerfile                # Docker image
+├── docker-compose.yml        # Docker Compose
+├── Makefile                  # Shortcuts (make run, make init)
+├── LICENSE                   # MIT
+├── .env.example              # Configuration template
+├── .gitignore
 │
 ├── skyproject/
-│   ├── cli.py                          # CLI entry point (skyproject command)
-│   ├── core/
-│   │   ├── orchestrator.py             # Main evolution loop
-│   │   ├── communication.py            # PM ↔ Irgat async message bus
-│   │   ├── task_store.py               # File-based task persistence
-│   │   ├── config.py                   # Central configuration
-│   │   ├── bootstrap.py                # Auto-setup & project detection
-│   │   ├── code_index.py               # Code index manager
-│   │   ├── self_improvement.py         # Feedback loop for self-improvement
-│   │   └── improvement_tracker.py      # Improvement tracking
+│   ├── __init__.py           # v0.2.0
+│   ├── cli.py                # skyproject init/run/status CLI
 │   │
-│   ├── pm_ai/
-│   │   ├── pm_agent.py                 # PM AI unified agent
-│   │   ├── planner.py                  # Codebase analysis & task creation
-│   │   ├── reviewer.py                 # Code review engine
-│   │   ├── prioritizer.py              # Task prioritization
-│   │   └── self_improve.py             # PM self-improvement (vector-powered)
+│   ├── core/                          # Orchestration layer
+│   │   ├── orchestrator.py            # Main evolution loop (155 lines)
+│   │   ├── config.py                  # Central config (64 lines)
+│   │   ├── bootstrap.py               # Auto-setup + project detection (276 lines)
+│   │   ├── communication.py           # Async MessageBus (188 lines)
+│   │   ├── task_store.py              # File-based task persistence (94 lines)
+│   │   ├── code_index.py              # Vector DB index manager (93 lines)
+│   │   ├── self_improvement.py        # Feedback loop (73 lines)
+│   │   ├── improvement_tracker.py     # Improvement tracking (62 lines)
+│   │   ├── feedback_analysis.py       # Sentiment + trend analysis (180 lines)
+│   │   └── ml_insights.py            # KMeans, PCA, anomaly (143 lines)
 │   │
-│   ├── irgat_ai/
-│   │   ├── irgat_agent.py              # IrgatAI unified agent
-│   │   ├── coder.py                    # Code generation engine
-│   │   ├── executor.py                 # Task execution coordinator
-│   │   ├── tester.py                   # Code validation & testing
-│   │   ├── self_improve.py             # Irgat self-improvement (vector-powered)
-│   │   └── anomaly_detector.py         # Anomaly detection
+│   ├── pm_ai/                         # Project Manager AI
+│   │   ├── pm_agent.py               # PM unified agent (213 lines)
+│   │   ├── planner.py                # Task planning (60 lines)
+│   │   ├── reviewer.py               # Code review engine (67 lines)
+│   │   ├── prioritizer.py            # Task prioritization
+│   │   ├── self_improve.py           # PM self-improvement (126 lines)
+│   │   ├── task_dependency_visualizer.py  # Dependency graph (191 lines)
+│   │   ├── ml_insights.py            # ML insights for PM
+│   │   └── common.py                 # Error codes
 │   │
-│   └── shared/
-│       ├── models.py                   # Pydantic data models
-│       ├── llm_client.py               # OpenAI/Anthropic client
-│       ├── file_ops.py                 # Async file operations
-│       ├── vector_store.py             # ChromaDB vector store
-│       ├── code_chunker.py             # AST-based code chunker
-│       └── prompt_generation.py        # Dynamic prompt generation
+│   ├── irgat_ai/                      # Implementation Engine AI
+│   │   ├── irgat_agent.py            # IrgatAI unified agent (125 lines)
+│   │   ├── coder.py                  # Code generation engine (125 lines)
+│   │   ├── executor.py               # Task execution coordinator (96 lines)
+│   │   ├── tester.py                 # AST validation (55 lines)
+│   │   ├── self_improve.py           # Irgat self-improvement (142 lines)
+│   │   ├── anomaly_detector.py       # Anomaly detection (50 lines)
+│   │   └── exceptions.py             # Custom exceptions (42 lines)
+│   │
+│   └── shared/                        # Shared infrastructure
+│       ├── models.py                  # Pydantic data models (126 lines)
+│       ├── llm_client.py             # OpenAI/Anthropic client (198 lines)
+│       ├── vector_store.py           # ChromaDB vector store (261 lines)
+│       ├── code_chunker.py           # AST-based chunker (155 lines)
+│       ├── file_ops.py               # Async file operations (130 lines)
+│       ├── prompt_generation.py      # Dynamic prompt generation (128 lines)
+│       ├── logging_utils.py          # Logging utilities (55 lines)
+│       ├── notifications.py          # FCM notifications (52 lines)
+│       ├── api.py                    # FastAPI endpoints (31 lines)
+│       └── device_registration.py    # Device registration (70 lines)
 │
-├── data/                               # Runtime data (gitignored)
-│   ├── tasks/                          # Task queue
-│   ├── logs/                           # Activity logs
-│   ├── improvements/                   # Pre-modification snapshots
-│   └── vector_db/                      # ChromaDB persistence
+├── data/                              # Runtime data (gitignored)
+│   ├── tasks/                         # Task JSON files
+│   ├── logs/                          # skyproject.log + messages.jsonl
+│   ├── improvements/                  # Pre-modification snapshots
+│   └── vector_db/                     # ChromaDB persistent storage
 │
-└── tests/                              # Test suite
+└── tests/                             # Test suite (~30 files)
 ```
+
+**Total:** ~36 core files, ~4,500+ lines of code, ~30 test files
 
 ## How the Evolution Loop Works
 
-```
-Cycle 1:
-  PM AI  → Analyzes codebase via vector search
-  PM AI  → Creates task: "Add retry logic to executor"
-  PM AI  → Assigns task to IrgatAI via MessageBus
-  IrgatAI → Receives task, retrieves relevant code from vector DB
-  IrgatAI → Implements changes, submits for review
-  PM AI  → Reviews: quality 8/10, approved ✓
-  Index  → Re-indexes modified files
+```mermaid
+sequenceDiagram
+    participant O as Orchestrator
+    participant PM as PM AI
+    participant Bus as MessageBus
+    participant Irgat as IrgatAI
+    participant Index as CodeIndex
+    participant LLM as LLM API
+    participant Store as TaskStore
 
-Cycle 5 (self-improvement):
-  PM AI  → Analyzes own code: "Planner needs better context handling"
-  PM AI  → Upgrades its own planning logic
-  IrgatAI → Analyzes own code: "Tester lacks edge case coverage"
-  IrgatAI → Upgrades its own testing engine
-  Index  → Full re-index after improvements
+    Note over O: Startup: index_all()
+    O->>Index: ensure_indexed()
+    Index-->>O: 255 chunks ready
+
+    loop Every cycle (30s interval)
+        O->>PM: run_cycle()
+
+        PM->>Store: get_pending()
+        Store-->>PM: empty list
+
+        PM->>Index: get_module_summary() + get_context_for_task()
+        Index-->>PM: relevant code chunks (~3K tokens)
+
+        PM->>LLM: plan_tasks (only relevant context)
+        LLM-->>PM: 1-3 tasks as JSON
+
+        PM->>Store: save(task)
+        PM->>Bus: task_assign message
+
+        O->>Irgat: run_cycle()
+        Bus-->>Irgat: task messages
+
+        Irgat->>Index: get_context_for_task()
+        Index-->>Irgat: relevant code chunks
+
+        Irgat->>LLM: implement(task + context)
+        LLM-->>Irgat: code changes as JSON
+
+        Irgat->>Irgat: Tester.validate (AST parse)
+        Irgat->>Irgat: FileOps.write_file
+        Irgat->>Index: index_file (changed file)
+        Irgat->>Bus: review_request
+
+        Note over O: PM reviews in next cycle
+
+        alt Every 5 cycles
+            PM->>Index: self-improve analysis
+            PM->>LLM: analyze own code
+            PM->>PM: apply_improvement + snapshot
+            Irgat->>Index: self-improve analysis
+            Irgat->>LLM: analyze own code
+            Irgat->>Irgat: apply_improvement + snapshot
+            O->>Index: index_all() (re-index)
+        end
+    end
 ```
+
+## Data Models
+
+Core data structures defined in `skyproject/shared/models.py`:
+
+| Model | Fields | Purpose |
+|---|---|---|
+| **Task** | id, title, description, task_type, priority, status, target_module, code_changes, review_notes | Unit of work assigned to IrgatAI |
+| **CodeChange** | file_path, old_content, new_content, change_type | A single file modification |
+| **ReviewResult** | task_id, approved, feedback, quality_score, suggestions | PM AI's review verdict |
+| **ImprovementProposal** | source, target, title, description, rationale, proposed_changes, status | Self-improvement plan |
+| **Message** | sender, receiver, msg_type, payload | MessageBus communication unit |
+| **SystemState** | total_tasks_completed, total_improvements, uptime, cycle_count | Runtime monitoring |
+
+Message types: `task_assign`, `review_request`, `review_result`, `status_update`, `improvement_proposal`
 
 ## Cost Optimization
 
 SkyProject uses a **vector DB** (ChromaDB) with **local embeddings** to minimize LLM API costs:
+
+```mermaid
+flowchart LR
+    subgraph Before ["Before (Expensive)"]
+        AllCode["Full source code\n~100K+ tokens"] --> LLM1["LLM API\n~$0.30/cycle"]
+    end
+
+    subgraph After ["After (Vector DB)"]
+        Source["Source code"] --> Chunker["AST Chunker\n(function/class)"]
+        Chunker --> ChromaDB["ChromaDB\nall-MiniLM-L6-v2\n(LOCAL - zero cost)"]
+        Query["Task description"] --> ChromaDB
+        ChromaDB -->|"top ~10 chunks"| Context["~3-5K tokens"]
+        Context --> LLM2["LLM API\n~$0.01-0.02/cycle"]
+    end
+```
 
 | Approach | Tokens per cycle | Cost estimate |
 |---|---|---|
